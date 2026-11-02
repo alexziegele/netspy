@@ -61,7 +61,11 @@ Hinweise:
 ## Wie Geräte gespeichert werden
 
 Ein Gerät ist **MAC + VLAN**. Wechselt die IP per DHCP, bleibt der Name erhalten (bei markierten Geräten kommt eine Telegram-Meldung „IP geändert“).
-Geräte mit **zufälliger MAC-Adresse** (iOS/Android „Private Adresse“) tauchen nach einem Wechsel als neues Gerät auf – für eigene Geräte im WLAN die private Adresse am besten ausschalten.
+**WLAN-/VLAN-Wechsel und private MAC-Adressen:** Taucht ein Gerät in einem anderen VLAN auf (z. B. zweites WLAN) oder mit einer neuen privaten MAC (iOS/Android verwenden pro WLAN eine eigene), wird es dem bestehenden Eintrag zugeordnet – wenn die MAC gleich ist oder bei privater MAC der Hostname übereinstimmt und der alte Eintrag gerade nicht aktiv ist. Name und 🔔 bleiben erhalten, es kommt keine „Neues Gerät“-Meldung. Beobachtete Geräte melden stattdessen „Wechselt WLAN/VLAN“.
+
+Geräte mit privater MAC **ohne** Hostname lassen sich nicht sicher zuordnen. Für eigene Geräte in den WLAN-Einstellungen „Private WLAN-Adresse“ auf **Aus** oder **Fest** (nicht „Rotierend“) stellen.
+
+`MERGE_RANDOM_MAC=false` schaltet die Zuordnung per Hostname ab, `NOTIFY_RANDOM_MAC=false` unterdrückt „Neues Gerät“-Meldungen für Geräte mit privater MAC.
 
 Daten liegen in `./data/netwatch.db` (SQLite).
 

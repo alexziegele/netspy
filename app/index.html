@@ -95,6 +95,7 @@ select{background:var(--panel);border:1px solid var(--line);color:var(--text);bo
 .b-new{background:color-mix(in srgb,var(--acc) 20%,transparent);color:var(--acc)}
 .b-online{background:color-mix(in srgb,var(--on) 18%,transparent);color:var(--on)}
 .b-offline{background:color-mix(in srgb,var(--off) 18%,transparent);color:var(--off)}
+.b-macchange,.b-vlanchange{background:color-mix(in srgb,#a78bfa 20%,transparent);color:#a78bfa}
 .b-ipchange{background:color-mix(in srgb,var(--warn) 18%,transparent);color:var(--warn)}
 .ev .txt{min-width:0}
 .ev .txt b{font-weight:600}
@@ -217,6 +218,8 @@ select{background:var(--panel);border:1px solid var(--line);color:var(--text);bo
         <button data-k="online">Online</button>
         <button data-k="offline">Offline</button>
         <button data-k="ipchange">IP</button>
+        <button data-k="macchange">MAC</button>
+        <button data-k="vlanchange">VLAN</button>
       </div>
       <select id="evlan" onchange="renderEvents()"><option value="">Alle VLANs</option></select>
       <select id="elimit" onchange="loadEvents()">
@@ -394,7 +397,7 @@ function refreshSheet(force) {
     </div>
     <dl class="kv">
       <dt>IP</dt><dd class="mono">${esc(d.ip)}</dd>
-      <dt>MAC</dt><dd class="mono">${esc(d.mac)}</dd>
+      <dt>MAC</dt><dd><span class="mono">${esc(d.mac)}</span>${isRnd(d.mac) ? ` <span class="badge" title="Lokal administrierte (zufällige) MAC-Adresse">privat</span>` : ""}</dd>
       ${d.hostname ? `<dt>Hostname</dt><dd>${esc(d.hostname)}</dd>` : ""}
       ${d.unifi_name ? `<dt>UniFi-Name</dt><dd>${esc(d.unifi_name)}</dd>` : ""}
       ${d.vendor ? `<dt>Hersteller</dt><dd>${esc(d.vendor)}</dd>` : ""}
@@ -439,7 +442,8 @@ async function delDev(id) {
 document.addEventListener("keydown", e => { if (e.key === "Escape") closeSheet(); });
 
 /* ---------- Ereignisse ---------- */
-const KIND = {new:"Neu", online:"Online", offline:"Offline", ipchange:"IP neu", info:"Info"};
+const KIND = {new:"Neu", online:"Online", offline:"Offline", ipchange:"IP neu", macchange:"MAC neu", vlanchange:"VLAN neu", info:"Info"};
+const isRnd = mac => !!mac && mac.length === 17 && "26ae".includes(mac[1].toLowerCase());
 async function loadEvents() {
   try {
     const r = await (await fetch(`api/events?limit=${$("elimit").value}&kind=${encodeURIComponent(ekind)}`)).json();
@@ -481,7 +485,8 @@ function renderEvents() {
       const who = e.name || (S && S.unifi_names && e.unifi_name) || e.hostname || (e.device ? "Unbekanntes Gerät" : "");
       const what = e.kind === "new" ? (e.text.startsWith("Erfasst") ? "beim ersten Scan erfasst" : "neu im Netz")
         : e.kind === "online" ? "ist online" : e.kind === "offline" ? "ist offline"
-        : e.kind === "ipchange" ? (e.text.split(": ").slice(1).join(": ") || e.text) : e.text;
+        : ["ipchange", "macchange", "vlanchange"].includes(e.kind) ? (e.text.split(": ").slice(1).join(": ") || e.text)
+        : e.text;
       const b = `<span class="badge b-${e.kind}">${KIND[e.kind] || esc(e.kind)}</span>`;
       return `
       <div class="ev" ${e.device ? `onclick="go(${e.device})" style="cursor:pointer"` : ""}>
@@ -489,7 +494,7 @@ function renderEvents() {
         <span class="bdg">${b}</span>
         <div class="txt">
           <span class="bm">${b}</span><b>${esc(who || e.text)}</b>
-          ${who ? `<small>${esc(what)}${e.ip && e.kind !== "ipchange" ? ` · <span class="mono">${esc(e.ip)}</span>` : ""}</small>` : ""}
+          ${who ? `<small>${esc(what)}${e.ip && !["ipchange", "macchange"].includes(e.kind) ? ` · <span class="mono">${esc(e.ip)}</span>` : ""}</small>` : ""}
           ${e.tg && e.tg.startsWith("error") ? `<small class="tg-err">${esc(e.tg)}</small>` : ""}
         </div>
         <span class="tg">${tg(e.tg)}</span>

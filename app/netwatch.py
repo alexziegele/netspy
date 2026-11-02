@@ -81,6 +81,8 @@ TG_CHAT = env("TELEGRAM_CHAT_ID", "")
 TG_COMMANDS = env_bool("TELEGRAM_COMMANDS", True)
 NOTIFY_NEW = env_bool("NOTIFY_NEW_DEVICES", True)
 WATCH_DEFAULT = env_bool("WATCH_NEW_DEVICES", False)       # neue Geräte automatisch beobachten?
+MERGE_RANDOM_MAC = env_bool("MERGE_RANDOM_MAC", True)      # private MAC + gleicher Hostname = gleiches Gerät
+NOTIFY_RANDOM_MAC = env_bool("NOTIFY_RANDOM_MAC", True)    # Meldung auch für unbekannte Geräte mit privater MAC
 
 UNIFI_URL = (env("UNIFI_URL", "") or "").rstrip("/")      # leer = UniFi deaktiviert
 UNIFI_USER = env("UNIFI_USER", "")
@@ -197,12 +199,19 @@ def norm_mac(mac):
     return mac if len(mac) == 17 else ""
 
 
+def is_random_mac(mac):
+    """Lokal administrierte MAC (2. Hex-Ziffer 2/6/A/E) = private/zufällige Adresse (iOS, Android, Windows)."""
+    return len(mac or "") == 17 and mac[1].lower() in "26ae"
+
+
 def vlan_of(ip):
     """192.168.<vlan>.x -> vlan, sonst 0 (= 'Andere')."""
     try:
-        ipaddress.IPv4Address(ip)
+        addr = ipaddress.IPv4Address(ip)
     except Exception:
         return None
+    if addr.is_link_local or addr.is_unspecified or addr.is_multicast or ip.endswith(".255"):
+        return None  # 169.254.x.x (kein DHCP), 0.0.0.0 usw. ignorieren
     parts = ip.split(".")
     prefix = SUBNET_PREFIX.split(".")
     if parts[: len(prefix)] != prefix:
@@ -512,7 +521,8 @@ def fmt_device(d):
     if d.get("hostname") and d.get("hostname") != display_name(d):
         lines.append(f"Hostname: {esc(d['hostname'])}")
     lines.append(f"{esc(vlan_label(d['vlan']))} · {esc(d['ip'])}")
-    lines.append(f"<code>{esc(d['mac'])}</code> {esc(d['vendor'])}".strip())
+    lines.append(f"<code>{esc(d['mac'])}</code> {esc(d['vendor'])}".strip()
+                 + (" · private MAC" if is_random_mac(d.get("mac")) else ""))
     if d.get("conn"):
         lines.append(esc(d["conn"]))
     return "\n".join(lines)
@@ -721,22 +731,55 @@ def scan_once():
             known = {(r["mac"], r["vlan"]): dict(r) for r in db().execute("SELECT * FROM devices")}
         first_scan = not known
 
-        # Neue Geräte anlegen
-        new_devices = []
+        # Neue Geräte anlegen – vorher prüfen, ob es ein bekanntes Gerät ist, das nur
+        # das WLAN/VLAN gewechselt hat oder eine neue private MAC verwendet
+        new_devices, moves = [], []
         with db_lock:
             for key, info in seen.items():
                 if key in known:
                     continue
+                mac, v = key
+                host = (info.get("hostname") or "").strip().lower()
+                uname = (info.get("unifi_name") or "").strip().lower()
+
+                def same_device(k, d):
+                    if k in seen:            # alter Eintrag ist gerade selbst aktiv -> anderes Gerät
+                        return False
+                    if k[0] == mac:          # gleiche MAC, anderes VLAN (z. B. zweites WLAN)
+                        return True
+                    if MERGE_RANDOM_MAC and is_random_mac(mac) and (host or uname):
+                        return ((host and (d.get("hostname") or "").strip().lower() == host) or
+                                (uname and (d.get("unifi_name") or "").strip().lower() == uname))
+                    return False
+
+                cand = [d for k, d in known.items() if same_device(k, d)]
+                if cand:
+                    # bevorzugt gleiche MAC, sonst zuletzt gesehenes Gerät
+                    old = max(cand, key=lambda d: (d["mac"] == mac, d.get("last_seen") or 0))
+                    old_key = (old["mac"], old["vlan"])
+                    try:
+                        db().execute("UPDATE devices SET mac=?, vlan=? WHERE id=?", (mac, v, old["id"]))
+                    except sqlite3.IntegrityError:
+                        pass
+                    else:
+                        known.pop(old_key, None)
+                        moves.append((old, dict(old), info))
+                        old["mac"], old["vlan"] = mac, v
+                        known[key] = old
+                        continue
+
                 cur = db().execute(
                     "INSERT INTO devices(mac,vlan,ip,hostname,vendor,interface,unifi_name,conn,first_seen,"
                     "last_seen,online,fails,watch,changed_at) VALUES(?,?,?,?,?,?,?,?,?,?,0,0,?,?)",
-                    (key[0], key[1], info["ip"], info["hostname"], info["vendor"], info["interface"],
+                    (mac, v, info["ip"], info["hostname"], info["vendor"], info["interface"],
                      info.get("unifi_name", ""), info.get("conn", ""),
                      now, None, 1 if WATCH_DEFAULT else 0, now))
                 d = dict(db().execute("SELECT * FROM devices WHERE id=?", (cur.lastrowid,)).fetchone())
                 known[key] = d
                 new_devices.append(d)
             db().commit()
+
+        moved_ids = {m[0]["id"] for m in moves}
 
         # Online-Prüfung
         targets = {}
@@ -789,7 +832,7 @@ def scan_once():
                         fields["unifi_name"] = info["unifi_name"]
                     if info.get("conn"):
                         fields["conn"] = info["conn"]
-                if info and d["ip"] and info["ip"] != d["ip"]:
+                if info and d["ip"] and info["ip"] != d["ip"] and d["id"] not in moved_ids:
                     events.append(("ipchange", {**d, "old_ip": d["ip"], "ip": info["ip"]}))
                 sets = ",".join(f"{k}=?" for k in fields)
                 db().execute(f"UPDATE devices SET {sets} WHERE id=?", (*fields.values(), d["id"]))
@@ -814,10 +857,29 @@ def scan_once():
                    + "\n\nAb jetzt kommt bei jedem neuen Gerät eine Nachricht.", NOTIFY_NEW)
         else:
             for d in new_devices:
-                d = dict(d)
-                info = seen.get((d["mac"], d["vlan"]), {})
-                d.update({k: info.get(k) or d.get(k) for k in ("hostname", "unifi_name", "conn", "vendor")})
-                notify(d["id"], "new", f"Neues Gerät: {display_name(d)} ({d['ip']})", fmt_new_device(d), NOTIFY_NEW)
+                rnd = is_random_mac(d["mac"])
+                msg = fmt_new_device(d)
+                if rnd:
+                    msg += ("\n\nℹ️ <i>Private (zufällige) MAC-Adresse – kann auch ein bekanntes Gerät sein, "
+                            "das eine neue Adresse verwendet.</i>")
+                notify(d["id"], "new", f"Neues Gerät: {display_name(d)} ({d['ip']})" + (" · private MAC" if rnd else ""),
+                       msg, NOTIFY_NEW and (NOTIFY_RANDOM_MAC or not rnd))
+        for d, before, info in moves:
+            d = dict(d)
+            for k in ("ip", "conn", "hostname"):
+                if info.get(k):
+                    d[k] = info[k]
+            parts, tg_parts = [], []
+            if before["vlan"] != d["vlan"]:
+                parts.append(f"{vlan_label(before['vlan'])} → {vlan_label(d['vlan'])}")
+                tg_parts.append(f"Vorher: {esc(vlan_label(before['vlan']))} · {esc(before['ip'])}")
+            if before["mac"] != d["mac"]:
+                parts.append(f"neue private MAC {before['mac']} → {d['mac']}")
+                tg_parts.append(f"Vorherige MAC: <code>{esc(before['mac'])}</code>")
+            kind = "vlanchange" if before["vlan"] != d["vlan"] else "macchange"
+            title = "🔀 <b>Wechselt WLAN/VLAN</b>" if kind == "vlanchange" else "🔄 <b>Neue private MAC</b>"
+            notify(d["id"], kind, f"{display_name(d)}: " + ", ".join(parts),
+                   f"{title}\n{fmt_device(d)}\n" + "\n".join(tg_parts), bool(d["watch"]))
         for kind, d in events:
             if kind == "online":
                 notify(d["id"], kind, f"{display_name(d)} ist online",
