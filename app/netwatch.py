@@ -248,6 +248,19 @@ class OPNsense:
     def arp(self):
         """Liste von dicts mit mac, ip, intf, manufacturer, hostname, expired, permanent."""
         try:
+            return self._arp()
+        except urllib.error.HTTPError as e:
+            if e.code == 401:
+                raise RuntimeError("401 – API-Key/Secret falsch (OPNSENSE_KEY / OPNSENSE_SECRET prüfen)")
+            if e.code == 403:
+                raise RuntimeError("403 – API-Benutzer fehlt das Recht 'Diagnostics: ARP Table' "
+                                   "(System > Zugang > Benutzer > Effektive Rechte)")
+            raise
+        except urllib.error.URLError as e:
+            raise RuntimeError(f"OPNsense nicht erreichbar unter {OPN_URL}: {e.reason}")
+
+    def _arp(self):
+        try:
             res = self._req("/api/diagnostics/interface/getArp")
             if isinstance(res, list):
                 return res
