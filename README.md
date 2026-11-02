@@ -5,7 +5,8 @@ Ein kleiner NetAlertX-Ersatz:
 - liest ARP-Tabelle + DHCP-Leases (ISC, Kea oder Dnsmasq) aus der **OPNsense-API**
 - optional verbundene Clients aus **UniFi OS** (Aliasname, SSID/AP oder Switch-Port, Signal)
 - sortiert Geräte nach VLAN: `192.168.10.x` → VLAN 10 … `192.168.90.x` → VLAN 90
-- Web-UI: Geräte benennen, Online-Status, Suche, Filter, Ereignisliste
+- Web-UI: Geräte benennen, Online-Status, Suche, Filter
+- eigene Seite **Ereignisse** (`#/events`): neu / online / offline / IP geändert, filterbar, mit Telegram-Zustellstatus (✓ / ✕)
 - **Telegram**: Nachricht bei neuem Gerät (mit dem Namen, den das Gerät meldet), Online/Offline-Meldungen für markierte Geräte (🔔)
 - **Telegram-Befehle**: `/check NAME`, `/online [vlan]`, `/offline [vlan]`, `/status`, `/scan`
 
@@ -34,6 +35,8 @@ Vorteil: Handys im WLAN antworten oft nicht auf Ping – UniFi weiß trotzdem, d
    (Für eine Gruppe: Bot zur Gruppe hinzufügen, die ID beginnt dann mit `-`.)
 
 Der Bot reagiert nur auf Nachrichten aus dieser Chat-ID.
+
+Beim **allerersten Scan** kommt eine Zusammenfassung („X Geräte erfasst“) statt einer Nachricht pro Gerät. Danach meldet jedes neue Gerät einzeln. Ob eine Nachricht rausging, siehst du auf der Ereignisseite in der Spalte ✈︎. Fehler von Telegram stehen oben im UI und im Log (`docker compose logs`).
 
 ## 4. Starten
 

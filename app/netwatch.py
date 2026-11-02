@@ -15,6 +15,7 @@ import ipaddress
 import json
 import logging
 import os
+import queue
 import secrets
 import sqlite3
 import ssl
@@ -146,6 +147,9 @@ def db():
         for col in ("unifi_name", "conn"):
             if col not in cols:
                 _db.execute(f"ALTER TABLE devices ADD COLUMN {col} TEXT DEFAULT ''")
+        ecols = {r["name"] for r in _db.execute("PRAGMA table_info(events)")}
+        if "tg" not in ecols:
+            _db.execute("ALTER TABLE events ADD COLUMN tg TEXT DEFAULT ''")
         _db.commit()
     return _db
 
@@ -162,11 +166,24 @@ def kv_set(k, v):
         db().commit()
 
 
-def add_event(device_id, kind, text):
+EVENT_KEEP = 5000
+
+
+def add_event(device_id, kind, text, tg=""):
+    """tg: '' = keine Telegram-Nachricht, 'queued' / 'sent' / 'error: …'"""
     with db_lock:
-        db().execute("INSERT INTO events(ts,device,kind,text) VALUES(?,?,?,?)",
-                     (int(time.time()), device_id, kind, text))
-        db().execute("DELETE FROM events WHERE id NOT IN (SELECT id FROM events ORDER BY id DESC LIMIT 500)")
+        cur = db().execute("INSERT INTO events(ts,device,kind,text,tg) VALUES(?,?,?,?,?)",
+                           (int(time.time()), device_id, kind, text, tg))
+        db().execute(f"DELETE FROM events WHERE id NOT IN (SELECT id FROM events ORDER BY id DESC LIMIT {EVENT_KEEP})")
+        db().commit()
+        return cur.lastrowid
+
+
+def set_event_tg(event_id, tg):
+    if not event_id:
+        return
+    with db_lock:
+        db().execute("UPDATE events SET tg=? WHERE id=?", (tg, event_id))
         db().commit()
 
 
@@ -410,24 +427,80 @@ unifi = UniFi()
 # --------------------------------------------------------------------------
 
 
+class TelegramError(Exception):
+    def __init__(self, msg, retry_after=0):
+        super().__init__(msg)
+        self.retry_after = retry_after
+
+
 def tg_api(method, payload, timeout=15):
     url = f"https://api.telegram.org/bot{TG_TOKEN}/{method}"
     req = urllib.request.Request(url, data=json.dumps(payload).encode(),
                                  headers={"Content-Type": "application/json"})
-    with urllib.request.urlopen(req, timeout=timeout) as r:
-        return json.loads(r.read().decode())
-
-
-def tg_send(text, chat_id=None):
-    if not TG_TOKEN or not (chat_id or TG_CHAT):
-        return False
     try:
-        tg_api("sendMessage", {"chat_id": chat_id or TG_CHAT, "text": text,
-                               "parse_mode": "HTML", "disable_web_page_preview": True})
-        return True
-    except Exception as e:
-        log.warning("Telegram-Fehler: %s", e)
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            return json.loads(r.read().decode())
+    except urllib.error.HTTPError as e:
+        try:
+            body = json.loads(e.read().decode())
+        except Exception:
+            body = {}
+        desc = body.get("description") or f"HTTP {e.code}"
+        retry = (body.get("parameters") or {}).get("retry_after", 0)
+        raise TelegramError(desc, retry)
+    except urllib.error.URLError as e:
+        raise TelegramError(f"api.telegram.org nicht erreichbar: {e.reason}")
+
+
+tg_queue = queue.Queue()
+tg_state = {"last_error": "", "last_ok": 0}
+
+
+def tg_send_now(text, chat_id=None):
+    """Sofort senden, mit Wiederholung bei Rate-Limit. Gibt (ok, fehler) zurück."""
+    if not TG_TOKEN or not (chat_id or TG_CHAT):
+        return False, "Telegram nicht konfiguriert (TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID fehlen)"
+    payload = {"chat_id": chat_id or TG_CHAT, "text": text,
+               "parse_mode": "HTML", "disable_web_page_preview": True}
+    err = ""
+    for attempt in range(5):
+        try:
+            tg_api("sendMessage", payload)
+            tg_state["last_ok"] = int(time.time())
+            tg_state["last_error"] = ""
+            return True, ""
+        except TelegramError as e:
+            err = str(e)
+            if e.retry_after:                      # 429 Too Many Requests
+                time.sleep(e.retry_after + 1)
+                continue
+            if "can't parse entities" in err:      # Formatierungsproblem -> ohne HTML senden
+                payload.pop("parse_mode", None)
+                continue
+            if "nicht erreichbar" in err and attempt < 4:
+                time.sleep(5 * (attempt + 1))
+                continue
+            break
+    tg_state["last_error"] = err
+    log.warning("Telegram-Fehler: %s", err)
+    return False, err
+
+
+def tg_send(text, chat_id=None, event_id=None):
+    """In die Warteschlange legen (blockiert den Scan nicht)."""
+    if not TG_TOKEN or not (chat_id or TG_CHAT):
+        set_event_tg(event_id, "error: Telegram nicht konfiguriert")
         return False
+    tg_queue.put((text, chat_id, event_id))
+    return True
+
+
+def tg_worker():
+    while True:
+        text, chat_id, event_id = tg_queue.get()
+        ok, err = tg_send_now(text, chat_id)
+        set_event_tg(event_id, "sent" if ok else f"error: {err}")
+        time.sleep(1.1)  # Telegram erlaubt ca. 1 Nachricht/Sekunde pro Chat
 
 
 def esc(s):
@@ -493,7 +566,7 @@ def tg_bot_loop():
                 text = (msg.get("text") or "").strip()
                 if not text.startswith("/") or chat != str(TG_CHAT):
                     continue
-                tg_send(handle_command(text), chat)
+                tg_send_now(handle_command(text), chat)
         except Exception as e:
             log.debug("Telegram-Polling: %s", e)
             time.sleep(10)
@@ -646,6 +719,7 @@ def scan_once():
 
         with db_lock:
             known = {(r["mac"], r["vlan"]): dict(r) for r in db().execute("SELECT * FROM devices")}
+        first_scan = not known
 
         # Neue Geräte anlegen
         new_devices = []
@@ -722,23 +796,39 @@ def scan_once():
             db().commit()
 
         # Benachrichtigungen
-        for d in new_devices:
-            add_event(d["id"], "new", f"Neues Gerät: {display_name(d)} ({d['ip']})")
-            if NOTIFY_NEW:
-                tg_send(fmt_new_device(d))
+        def notify(dev_id, kind, text, tg_text, send):
+            eid = add_event(dev_id, kind, text, "queued" if send and TG_TOKEN and TG_CHAT else "")
+            if send:
+                tg_send(tg_text, event_id=eid)
+
+        if first_scan and new_devices:
+            # Erster Scan: eine Zusammenfassung statt einer Nachricht pro Gerät
+            for d in new_devices:
+                add_event(d["id"], "new", f"Erfasst beim ersten Scan: {display_name(d)} ({d['ip']})")
+            per_vlan = {}
+            for d in new_devices:
+                per_vlan[d["vlan"]] = per_vlan.get(d["vlan"], 0) + 1
+            lines = [f"{esc(vlan_label(v))}: {n}" for v, n in sorted(per_vlan.items(), key=lambda x: x[0] or 999)]
+            notify(None, "info", f"Erster Scan: {len(new_devices)} Geräte erfasst",
+                   f"📋 <b>NetWatch gestartet</b>\n{len(new_devices)} Geräte erfasst:\n" + "\n".join(lines)
+                   + "\n\nAb jetzt kommt bei jedem neuen Gerät eine Nachricht.", NOTIFY_NEW)
+        else:
+            for d in new_devices:
+                d = dict(d)
+                info = seen.get((d["mac"], d["vlan"]), {})
+                d.update({k: info.get(k) or d.get(k) for k in ("hostname", "unifi_name", "conn", "vendor")})
+                notify(d["id"], "new", f"Neues Gerät: {display_name(d)} ({d['ip']})", fmt_new_device(d), NOTIFY_NEW)
         for kind, d in events:
             if kind == "online":
-                add_event(d["id"], kind, f"{display_name(d)} ist online")
-                if d["watch"]:
-                    tg_send("🟢 <b>Online</b>\n" + fmt_device(d))
+                notify(d["id"], kind, f"{display_name(d)} ist online",
+                       "🟢 <b>Online</b>\n" + fmt_device(d), bool(d["watch"]))
             elif kind == "offline":
-                add_event(d["id"], kind, f"{display_name(d)} ist offline")
-                if d["watch"]:
-                    tg_send("🔴 <b>Offline</b>\n" + fmt_device(d))
+                notify(d["id"], kind, f"{display_name(d)} ist offline",
+                       "🔴 <b>Offline</b>\n" + fmt_device(d), bool(d["watch"]))
             elif kind == "ipchange":
-                add_event(d["id"], kind, f"{display_name(d)}: IP {d['old_ip']} → {d['ip']}")
-                if d["watch"]:
-                    tg_send(f"🔁 <b>IP geändert</b> {esc(d['old_ip'])} → {esc(d['ip'])}\n" + fmt_device(d))
+                notify(d["id"], kind, f"{display_name(d)}: IP {d['old_ip']} → {d['ip']}",
+                       f"🔁 <b>IP geändert</b> {esc(d['old_ip'])} → {esc(d['ip'])}\n" + fmt_device(d),
+                       bool(d["watch"]))
 
         state["last_error"] = ""
         log.info("Scan: %d ARP, %d Leases, %d Geräte, %d neu", len(arp), len(leases), len(known), len(new_devices))
@@ -762,6 +852,26 @@ def scanner_loop():
 # --------------------------------------------------------------------------
 
 
+def api_events(qs):
+    try:
+        limit = max(1, min(int(qs.get("limit", ["300"])[0]), EVENT_KEEP))
+    except ValueError:
+        limit = 300
+    kind = qs.get("kind", [""])[0]
+    sql = ("SELECT e.*, d.name, d.unifi_name, d.hostname, d.ip, d.mac, d.vlan FROM events e "
+           "LEFT JOIN devices d ON d.id = e.device")
+    args = []
+    if kind:
+        sql += " WHERE e.kind = ?"
+        args.append(kind)
+    sql += " ORDER BY e.id DESC LIMIT ?"
+    args.append(limit)
+    with db_lock:
+        rows = [dict(r) for r in db().execute(sql, args)]
+        total = db().execute("SELECT COUNT(*) FROM events").fetchone()[0]
+    return {"events": rows, "total": total}
+
+
 def api_state():
     devs = list_devices()
     devs.sort(key=lambda d: ip_sort_key(d["ip"]))
@@ -772,10 +882,9 @@ def api_state():
             continue
         vlans.append({"id": v, "label": vlan_label(v), "subnet": f"{SUBNET_PREFIX}.{v}.0/24" if v else "",
                       "total": len(ds), "online": sum(d["online"] for d in ds)})
-    with db_lock:
-        evs = [dict(r) for r in db().execute("SELECT * FROM events ORDER BY id DESC LIMIT 50")]
     return {
-        "devices": devs, "vlans": vlans, "events": evs,
+        "devices": devs, "vlans": vlans,
+        "tg_error": tg_state["last_error"], "tg_last_ok": tg_state["last_ok"], "notify_new": NOTIFY_NEW,
         "last_scan": state["last_scan"], "last_error": state["last_error"],
         "duration": state["duration"], "interval": SCAN_INTERVAL,
         "telegram": bool(TG_TOKEN and TG_CHAT), "mode": ONLINE_MODE,
@@ -835,6 +944,9 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(200, f.read(), "text/html")
         if path == "/api/state":
             return self._send(200, api_state())
+        if path == "/api/events":
+            qs = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+            return self._send(200, api_events(qs))
         if path == "/health":
             return self._send(200, {"ok": True})
         self._send(404, {"error": "not found"})
@@ -847,8 +959,10 @@ class Handler(BaseHTTPRequestHandler):
             threading.Thread(target=scan_once, daemon=True).start()
             return self._send(200, {"ok": True})
         if path == "/api/telegram/test":
-            ok = tg_send("✅ NetWatch Test-Nachricht – Telegram funktioniert.")
-            return self._send(200 if ok else 500, {"ok": ok})
+            ok, err = tg_send_now("✅ NetWatch Test-Nachricht – Telegram funktioniert.")
+            add_event(None, "info", "Telegram-Test " + ("erfolgreich" if ok else "fehlgeschlagen"),
+                      "sent" if ok else f"error: {err}")
+            return self._send(200 if ok else 500, {"ok": ok, "error": err})
         if path.startswith("/api/devices/"):
             return self._update(path)
         self._send(404, {"error": "not found"})
@@ -876,6 +990,11 @@ class Handler(BaseHTTPRequestHandler):
         if not self._auth():
             return
         path = urllib.parse.urlparse(self.path).path
+        if path == "/api/events":
+            with db_lock:
+                db().execute("DELETE FROM events")
+                db().commit()
+            return self._send(200, {"ok": True})
         if path.startswith("/api/devices/"):
             try:
                 dev_id = int(path.rsplit("/", 1)[1])
@@ -892,6 +1011,11 @@ def main():
     db()
     if not OPN_KEY or not OPN_SECRET:
         log.warning("OPNSENSE_KEY / OPNSENSE_SECRET fehlen – Scans werden fehlschlagen.")
+    threading.Thread(target=tg_worker, daemon=True).start()
+    if TG_TOKEN and TG_CHAT:
+        log.info("Telegram aktiv (Chat %s, neue Geräte melden: %s)", TG_CHAT, NOTIFY_NEW)
+    else:
+        log.warning("Telegram NICHT konfiguriert – TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID fehlen")
     threading.Thread(target=scanner_loop, daemon=True).start()
     if TG_TOKEN and TG_CHAT and TG_COMMANDS:
         threading.Thread(target=tg_bot_loop, daemon=True).start()
