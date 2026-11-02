@@ -1,0 +1,12 @@
+services:
+  netwatch:
+    build: .
+    container_name: netwatch
+    restart: unless-stopped
+    # host-Netz, damit Pings direkt aus dem Docker-Host in alle VLANs gehen
+    network_mode: host
+    cap_add:
+      - NET_RAW
+    env_file: .env
+    volumes:
+      - ./data:/data
