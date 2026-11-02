@@ -968,6 +968,16 @@ class Handler(BaseHTTPRequestHandler):
         self._send(404, {"error": "not found"})
 
     def _update(self, path):
+        if path.endswith("/check"):
+            try:
+                dev_id = int(path.split("/")[3])
+            except (ValueError, IndexError):
+                return self._send(400, {"error": "bad id"})
+            with db_lock:
+                r = db().execute("SELECT ip FROM devices WHERE id=?", (dev_id,)).fetchone()
+            if not r or not r["ip"]:
+                return self._send(404, {"error": "not found"})
+            return self._send(200, {"ok": True, "alive": ping(r["ip"]), "ip": r["ip"]})
         try:
             dev_id = int(path.rsplit("/", 1)[1])
         except ValueError:

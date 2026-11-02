@@ -2,269 +2,539 @@
 <html lang="de">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0e1116">
+<meta name="apple-mobile-web-app-capable" content="yes">
 <title>NetWatch</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='14' fill='%232fbf71'/><circle cx='16' cy='16' r='6' fill='%230e1116'/></svg>">
 <style>
-  :root{--bg:#0f1216;--panel:#171b21;--line:#262c35;--text:#e6e9ee;--mute:#8b94a3;--on:#2fbf71;--off:#e5484d;--acc:#4c8dff;--warn:#f0b429}
-  *{box-sizing:border-box}
-  body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
-  header{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--line);background:var(--panel);position:sticky;top:0;z-index:5}
-  h1{font-size:18px;margin:0;letter-spacing:.3px}
-  .meta{color:var(--mute);font-size:12px}
-  .btn{background:#222833;color:var(--text);border:1px solid var(--line);border-radius:8px;padding:7px 12px;cursor:pointer;font:inherit}
-  .btn:hover{border-color:var(--acc)}
-  .tabs{display:flex;gap:6px;overflow-x:auto;padding:12px 18px 0}
-  .tab{white-space:nowrap;padding:8px 12px;border:1px solid var(--line);border-bottom:none;border-radius:8px 8px 0 0;cursor:pointer;color:var(--mute);background:var(--panel)}
-  .tab.active{color:var(--text);border-color:var(--acc);background:#1c2230}
-  .tab small{display:block;font-size:11px;color:var(--mute)}
-  main{padding:0 18px 30px}
-  .toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;padding:12px 0}
-  input[type=search]{background:#11151a;border:1px solid var(--line);color:var(--text);border-radius:8px;padding:8px 10px;min-width:220px;font:inherit}
-  label.chk{color:var(--mute);display:flex;align-items:center;gap:6px;cursor:pointer}
-  table{width:100%;border-collapse:collapse;background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:hidden}
-  th,td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:middle}
-  th{font-size:12px;color:var(--mute);font-weight:600;text-transform:uppercase;letter-spacing:.4px;background:#141820}
-  tr:last-child td{border-bottom:none}
-  .dot{display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--off)}
-  .dot.on{background:var(--on);box-shadow:0 0 6px var(--on)}
-  .name{background:transparent;border:1px solid transparent;color:var(--text);padding:5px 7px;border-radius:6px;width:100%;min-width:140px;font:inherit}
-  .name:hover{border-color:var(--line)}.name:focus{border-color:var(--acc);outline:none;background:#11151a}
-  .mono{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12.5px}
-  .mute{color:var(--mute)}
-  .del{background:none;border:none;color:var(--mute);cursor:pointer;font-size:16px}.del:hover{color:var(--off)}
-  .err{background:#3a1416;border:1px solid var(--off);color:#ffb3b5;padding:10px 12px;border-radius:8px;margin:12px 0}
-  .events{margin-top:22px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 14px}
-  .events h3{margin:4px 0 8px;font-size:13px;color:var(--mute);text-transform:uppercase}
-  .ev{font-size:13px;padding:3px 0;border-bottom:1px dashed var(--line)}.ev:last-child{border:none}
-  .switch{position:relative;width:34px;height:18px;display:inline-block}
-  .switch input{display:none}
-  .switch span{position:absolute;inset:0;background:#333a46;border-radius:18px;cursor:pointer;transition:.15s}
-  .switch span:before{content:"";position:absolute;width:14px;height:14px;left:2px;top:2px;background:#fff;border-radius:50%;transition:.15s}
-  .switch input:checked+span{background:var(--acc)}.switch input:checked+span:before{transform:translateX(16px)}
-  .nav{display:flex;gap:4px;margin-left:18px}
-  .nav a{color:var(--mute);text-decoration:none;padding:7px 12px;border-radius:8px}
-  .nav a.active{color:var(--text);background:#222833}
-  .badge{display:inline-block;font-size:11px;padding:2px 7px;border-radius:10px;background:#262c35;color:var(--mute);white-space:nowrap}
-  .b-new{background:#1d3357;color:#9cc1ff}.b-online{background:#153a28;color:#7fe0ab}
-  .b-offline{background:#3a1416;color:#ffb3b5}.b-ipchange{background:#3a2f12;color:#f5d27a}
-  .tg-ok{color:var(--on)}.tg-err{color:var(--off)}.tg-wait{color:var(--warn)}
-  select{background:#11151a;border:1px solid var(--line);color:var(--text);border-radius:8px;padding:8px 10px;font:inherit}
-  .warn{background:#3a2f12;border:1px solid var(--warn);color:#f5d27a;padding:10px 12px;border-radius:8px;margin:12px 0}
-  .hidden{display:none!important}
-  @media(max-width:760px){.hide-m{display:none}}
+:root{
+  --bg:#0e1116;--panel:#161a21;--panel2:#1b2029;--line:#252b35;--text:#e8ebf0;--mute:#8a93a3;--mute2:#5f6878;
+  --on:#2fbf71;--off:#e5484d;--acc:#4c8dff;--warn:#f0b429;--radius:12px;
+  --safe-b:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: light){
+  :root{--bg:#f4f6f9;--panel:#fff;--panel2:#f7f8fa;--line:#e3e7ee;--text:#151a22;--mute:#5f6878;--mute2:#9aa3b2}
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+button{font:inherit;color:inherit}
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12.5px}
+.mute{color:var(--mute)}
+.hidden{display:none!important}
+
+/* ---------- Header ---------- */
+header{position:sticky;top:0;z-index:20;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+.hbar{max-width:1200px;margin:0 auto;display:flex;align-items:center;gap:14px;padding:10px 16px}
+.logo{display:flex;align-items:center;gap:8px;font-weight:700;font-size:17px}
+.logo i{width:10px;height:10px;border-radius:50%;background:var(--on);box-shadow:0 0 8px var(--on)}
+.topnav{display:flex;gap:2px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:3px}
+.topnav a{color:var(--mute);text-decoration:none;padding:6px 14px;border-radius:7px;font-weight:500}
+.topnav a.active{background:var(--panel2);color:var(--text)}
+.spacer{flex:1}
+.ibtn{display:inline-flex;align-items:center;gap:6px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:7px 12px;cursor:pointer}
+.ibtn:hover{border-color:var(--acc)}
+.ibtn svg{width:16px;height:16px}
+.ibtn.spin svg{animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ---------- Layout ---------- */
+.wrap{max-width:1200px;margin:0 auto;padding:14px 16px 40px}
+.alerts>div{padding:10px 12px;border-radius:10px;margin-bottom:10px;font-size:13px}
+.a-err{background:color-mix(in srgb,var(--off) 15%,transparent);border:1px solid color-mix(in srgb,var(--off) 50%,transparent)}
+.a-warn{background:color-mix(in srgb,var(--warn) 14%,transparent);border:1px solid color-mix(in srgb,var(--warn) 45%,transparent)}
+
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
+.stat{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:12px 14px}
+.stat b{display:block;font-size:22px;line-height:1.1}
+.stat span{font-size:12px;color:var(--mute)}
+.stat.on b{color:var(--on)}.stat.off b{color:var(--off)}
+
+.vlans{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;margin-bottom:12px;scrollbar-width:none}
+.vlans::-webkit-scrollbar{display:none}
+.vchip{flex:0 0 auto;min-width:110px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px 12px;cursor:pointer;text-align:left}
+.vchip.active{border-color:var(--acc);background:color-mix(in srgb,var(--acc) 12%,var(--panel))}
+.vchip .t{font-weight:600;white-space:nowrap}
+.vchip .s{font-size:12px;color:var(--mute);white-space:nowrap}
+.bar{height:3px;background:var(--line);border-radius:3px;margin-top:6px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--on)}
+
+.tools{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.search{flex:1 1 240px;display:flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:0 10px}
+.search input{flex:1;background:none;border:none;outline:none;color:var(--text);font:inherit;padding:9px 0;min-width:0}
+.seg{display:flex;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:3px;overflow-x:auto;scrollbar-width:none;max-width:100%}
+.seg button{background:none;border:none;padding:6px 10px;border-radius:7px;color:var(--mute);cursor:pointer;white-space:nowrap}
+.seg button.active{background:var(--panel2);color:var(--text)}
+select{background:var(--panel);border:1px solid var(--line);color:var(--text);border-radius:10px;padding:8px 10px;font:inherit}
+
+.group{margin-bottom:16px}
+.ghead{display:flex;align-items:baseline;gap:10px;padding:6px 4px}
+.ghead h3{margin:0;font-size:13px;text-transform:uppercase;letter-spacing:.5px}
+.ghead span{font-size:12px;color:var(--mute)}
+.list{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}
+.row{display:grid;grid-template-columns:14px minmax(0,2.2fr) 130px minmax(0,1.6fr) 90px 34px;gap:12px;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line);cursor:pointer}
+.row:last-child{border-bottom:none}
+.row:hover{background:var(--panel2)}
+.dot{display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--off);opacity:.85;flex:0 0 auto}
+.dot.on{background:var(--on);box-shadow:0 0 6px var(--on);opacity:1}
+.nm{min-width:0}
+.nm b{display:block;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nm b.unnamed{color:var(--mute);font-weight:500;font-style:italic}
+.nm small{display:block;color:var(--mute);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.conn{color:var(--mute);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.seen{color:var(--mute);font-size:12.5px;text-align:right;white-space:nowrap}
+.bell{background:none;border:none;cursor:pointer;padding:4px;border-radius:8px;opacity:.3;font-size:16px;line-height:1;filter:grayscale(1)}
+.bell.on{opacity:1;filter:none}
+.empty{padding:28px;text-align:center;color:var(--mute)}
+
+.day{font-size:12px;color:var(--mute);text-transform:uppercase;letter-spacing:.5px;padding:10px 4px 6px}
+.ev{display:grid;grid-template-columns:52px 92px minmax(0,1fr) 22px;gap:10px;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line)}
+.ev:last-child{border-bottom:none}
+.ev time{color:var(--mute);font-size:12.5px}
+.badge{display:inline-block;font-size:11.5px;padding:2px 8px;border-radius:10px;background:var(--line);color:var(--mute);text-align:center;white-space:nowrap}
+.b-new{background:color-mix(in srgb,var(--acc) 20%,transparent);color:var(--acc)}
+.b-online{background:color-mix(in srgb,var(--on) 18%,transparent);color:var(--on)}
+.b-offline{background:color-mix(in srgb,var(--off) 18%,transparent);color:var(--off)}
+.b-ipchange{background:color-mix(in srgb,var(--warn) 18%,transparent);color:var(--warn)}
+.ev .txt{min-width:0}
+.ev .txt b{font-weight:600}
+.ev .txt small{display:block;color:var(--mute);overflow:hidden;text-overflow:ellipsis}
+.tg{text-align:center}
+.tg-ok{color:var(--on)}.tg-err{color:var(--off)}.tg-wait{color:var(--warn)}.tg-none{color:var(--mute2)}
+
+.backdrop{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:40;opacity:0;pointer-events:none;transition:opacity .2s}
+.backdrop.open{opacity:1;pointer-events:auto}
+.sheet{position:fixed;z-index:41;left:50%;top:50%;width:min(520px,94vw);max-height:90vh;overflow:auto;transform:translate(-50%,-46%);opacity:0;pointer-events:none;
+  background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px;transition:.2s}
+.sheet.open{transform:translate(-50%,-50%);opacity:1;pointer-events:auto}
+.sheet h2{margin:0 0 2px;font-size:18px;display:flex;align-items:center;gap:8px}
+.sheet .sub{color:var(--mute);margin-bottom:14px}
+.field label{display:block;font-size:12px;color:var(--mute);margin-bottom:4px}
+.field input{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:11px 12px;color:var(--text);font:inherit;font-size:16px}
+.field input:focus{outline:none;border-color:var(--acc)}
+.kv{display:grid;grid-template-columns:120px 1fr;gap:6px 12px;margin:14px 0;font-size:13.5px}
+.kv dt{color:var(--mute)}.kv dd{margin:0;word-break:break-all}
+.toggle{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.toggle small{display:block;color:var(--mute)}
+.sw{position:relative;width:44px;height:26px;flex:0 0 auto}
+.sw input{display:none}
+.sw span{position:absolute;inset:0;background:var(--line);border-radius:26px;cursor:pointer;transition:.15s}
+.sw span:before{content:"";position:absolute;width:20px;height:20px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.15s}
+.sw input:checked+span{background:var(--acc)}.sw input:checked+span:before{transform:translateX(18px)}
+.actions{display:flex;gap:8px;margin-top:12px}
+.btn{flex:1;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:11px 14px;cursor:pointer;font-weight:500}
+.btn.primary{background:var(--acc);border-color:var(--acc);color:#fff}
+.btn.danger{color:var(--off)}
+.checkres{margin-top:10px;font-size:13.5px}
+
+.bnav{display:none}
+.toast{position:fixed;left:50%;bottom:calc(20px + var(--safe-b));transform:translateX(-50%) translateY(20px);background:var(--text);color:var(--bg);padding:10px 16px;border-radius:10px;opacity:0;transition:.2s;z-index:50;pointer-events:none;max-width:90vw}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+@media (max-width:820px){
+  .row{grid-template-columns:12px minmax(0,1fr) auto 30px;gap:10px;padding:12px}
+  .row .ipc,.row .conn,.nm small.d{display:none}
+  .stats{gap:6px}
+  .stat{padding:8px 10px}.stat b{font-size:18px}.stat span{font-size:11px}
+  .topnav,.hlabel{display:none}
+  .hbar{padding:10px 12px}
+  .wrap{padding:12px 12px calc(84px + var(--safe-b))}
+  .bnav{display:flex;position:fixed;bottom:0;left:0;right:0;z-index:30;background:var(--panel);border-top:1px solid var(--line);padding:6px 6px calc(6px + var(--safe-b))}
+  .bnav a{flex:1;text-align:center;text-decoration:none;color:var(--mute);font-size:11.5px;padding:4px 0}
+  .bnav a svg{display:block;margin:0 auto 2px;width:22px;height:22px}
+  .bnav a.active{color:var(--acc)}
+  .toast{bottom:calc(80px + var(--safe-b))}
+  .sheet{left:0;right:0;top:auto;bottom:0;width:100%;max-height:88vh;transform:translateY(100%);border-radius:18px 18px 0 0;padding:16px 16px calc(18px + var(--safe-b));opacity:1}
+  .sheet.open{transform:translateY(0)}
+  .sheet:before{content:"";display:block;width:40px;height:4px;background:var(--line);border-radius:4px;margin:0 auto 12px}
+  .ev{grid-template-columns:44px minmax(0,1fr) 20px;padding:10px 12px}
+  .ev .bdg{display:none}
+  .ev .txt .bm{display:inline-block;margin-right:6px}
+  .kv{grid-template-columns:105px 1fr}
+  .tools select{flex:1}
+}
+@media (min-width:821px){.nm small.m{display:none}.ev .txt .bm{display:none}}
 </style>
 </head>
 <body>
+
 <header>
-  <div style="display:flex;align-items:center">
-    <div>
-      <h1>NetWatch</h1>
-      <div class="meta" id="meta">lädt …</div>
-    </div>
-    <nav class="nav">
-      <a href="#/" id="nav-dev">Geräte</a>
-      <a href="#/events" id="nav-ev">Ereignisse</a>
+  <div class="hbar">
+    <div class="logo"><i></i>NetWatch</div>
+    <nav class="topnav">
+      <a href="#/" data-nav="dev">Geräte</a>
+      <a href="#/events" data-nav="ev">Ereignisse</a>
     </nav>
-  </div>
-  <div style="display:flex;gap:8px">
-    <button class="btn" onclick="scanNow()">Jetzt scannen</button>
-    <button class="btn" id="tgbtn" onclick="tgTest()">Telegram testen</button>
+    <div class="spacer"></div>
+    <span class="mute" id="lastscan" style="font-size:12px"></span>
+    <button class="ibtn" id="scanbtn" onclick="scanNow()" title="Jetzt scannen">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 4v5h-5"/></svg><span class="hlabel">Scannen</span>
+    </button>
+    <button class="ibtn" onclick="tgTest()" title="Telegram testen">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M22 3 2 11l7 3 3 7 10-18z"/><path d="m9 14 13-11"/></svg><span class="hlabel">Test</span>
+    </button>
   </div>
 </header>
 
-<div id="page-dev">
-<div class="tabs" id="tabs"></div>
-<main>
-  <div id="error"></div>
-  <div class="toolbar">
-    <input type="search" id="q" placeholder="Suchen: Name, IP, MAC, Hersteller …" oninput="render()">
-    <label class="chk"><input type="checkbox" id="onlyOff" onchange="render()"> nur offline</label>
-    <label class="chk"><input type="checkbox" id="onlyUnnamed" onchange="render()"> nur unbenannt</label>
-  </div>
-  <table>
-    <thead><tr>
-      <th style="width:30px"></th><th>Name</th><th>IP</th><th class="hide-m">MAC</th>
-      <th class="hide-m">Hostname</th><th class="hide-m">Hersteller</th><th class="hide-m">Verbindung</th><th>Zuletzt</th>
-      <th title="Telegram bei online/offline">🔔</th><th></th>
-    </tr></thead>
-    <tbody id="rows"></tbody>
-  </table>
-</main>
+<div class="wrap">
+  <div class="alerts" id="alerts"></div>
+
+  <section id="page-dev">
+    <div class="stats" id="stats"></div>
+    <div class="vlans" id="vlans"></div>
+    <div class="tools">
+      <label class="search">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--mute)"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        <input id="q" type="search" placeholder="Name, IP, MAC, Hersteller …" oninput="render()">
+      </label>
+      <div class="seg" id="filters">
+        <button data-f="all" class="active">Alle</button>
+        <button data-f="on">Online</button>
+        <button data-f="off">Offline</button>
+        <button data-f="unnamed">Unbenannt</button>
+        <button data-f="watch">🔔</button>
+      </div>
+      <select id="sort" onchange="render()">
+        <option value="ip">Sortierung: IP</option>
+        <option value="name">Sortierung: Name</option>
+        <option value="status">Sortierung: Status</option>
+        <option value="seen">Sortierung: zuletzt gesehen</option>
+        <option value="first">Sortierung: neueste zuerst</option>
+      </select>
+    </div>
+    <div id="groups"></div>
+  </section>
+
+  <section id="page-ev" class="hidden">
+    <div class="tools">
+      <label class="search">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--mute)"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        <input id="eq" type="search" placeholder="Gerät, IP, Text …" oninput="renderEvents()">
+      </label>
+      <div class="seg" id="ekinds">
+        <button data-k="" class="active">Alle</button>
+        <button data-k="new">Neu</button>
+        <button data-k="online">Online</button>
+        <button data-k="offline">Offline</button>
+        <button data-k="ipchange">IP</button>
+      </div>
+      <select id="evlan" onchange="renderEvents()"><option value="">Alle VLANs</option></select>
+      <select id="elimit" onchange="loadEvents()">
+        <option value="100">letzte 100</option><option value="300" selected>letzte 300</option><option value="1000">letzte 1000</option><option value="5000">letzte 5000</option>
+      </select>
+    </div>
+    <div id="egroups"></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:14px">
+      <span class="mute" id="ecount" style="font-size:12px"></span>
+      <button class="ibtn" onclick="clearEvents()">Ereignisse löschen</button>
+    </div>
+  </section>
 </div>
 
-<div id="page-ev" class="hidden">
-<main style="padding-top:14px">
-  <div id="error2"></div>
-  <div class="toolbar">
-    <input type="search" id="eq" placeholder="Suchen: Gerät, IP, Text …" oninput="renderEvents()">
-    <select id="ekind" onchange="loadEvents()">
-      <option value="">Alle Ereignisse</option>
-      <option value="new">Neue Geräte</option>
-      <option value="online">Online</option>
-      <option value="offline">Offline</option>
-      <option value="ipchange">IP geändert</option>
-      <option value="info">Info</option>
-    </select>
-    <select id="evlan" onchange="renderEvents()"><option value="">Alle VLANs</option></select>
-    <select id="elimit" onchange="loadEvents()">
-      <option>100</option><option selected>300</option><option>1000</option><option>5000</option>
-    </select>
-    <span class="meta" id="ecount"></span>
-    <span style="flex:1"></span>
-    <button class="btn" onclick="clearEvents()">Ereignisse löschen</button>
-  </div>
-  <table>
-    <thead><tr><th>Zeit</th><th>Typ</th><th>Gerät</th><th>IP</th><th class="hide-m">VLAN</th><th>Ereignis</th><th title="Telegram">✈︎</th></tr></thead>
-    <tbody id="erows"></tbody>
-  </table>
-</main>
-</div>
+<div class="backdrop" id="backdrop" onclick="closeSheet()"></div>
+<div class="sheet" id="sheet" role="dialog" aria-modal="true"></div>
+
+<nav class="bnav">
+  <a href="#/" data-nav="dev">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>Geräte
+  </a>
+  <a href="#/events" data-nav="ev">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg>Ereignisse
+  </a>
+</nav>
+<div class="toast" id="toast"></div>
 
 <script>
-let S = null, cur = localStorage.getItem("nw_tab") ?? "all", editing = false;
+let S = null, E = [], curVlan = localStorage.getItem("nw_vlan") ?? "all", filter = "all", ekind = "", openId = null;
 
-const fmt = ts => {
-  if (!ts) return "–";
-  const d = new Date(ts * 1000), s = (Date.now() - d) / 1000;
-  if (s < 90) return "gerade eben";
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const ipNum = ip => (ip || "0.0.0.0").split(".").reduce((a, b) => a * 256 + (+b || 0), 0);
+const ago = ts => {
+  if (!ts) return "nie";
+  const s = Date.now() / 1000 - ts;
+  if (s < 90) return "gerade";
   if (s < 3600) return Math.round(s / 60) + " min";
   if (s < 86400) return Math.round(s / 3600) + " h";
-  return d.toLocaleDateString("de-DE") + " " + d.toLocaleTimeString("de-DE", {hour:"2-digit", minute:"2-digit"});
+  if (s < 86400 * 7) return Math.round(s / 86400) + " Tg";
+  return new Date(ts * 1000).toLocaleDateString("de-DE", {day:"2-digit", month:"2-digit"});
 };
-const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-
-async function load() {
-  if (editing) return;
-  try {
-    const r = await fetch("api/state");
-    S = await r.json();
-    render();
-  } catch (e) {
-    document.getElementById("meta").textContent = "Keine Verbindung zum Server";
-  }
+const dt = ts => ts ? new Date(ts * 1000).toLocaleString("de-DE", {day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"}) : "–";
+const dname = d => d.name || (S && S.unifi_names && d.unifi_name) || d.hostname || "";
+const toast = t => { const el = $("toast"); el.textContent = t; el.classList.add("show"); clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove("show"), 2600); };
+async function api(url, body, method = "POST") {
+  return fetch(url, {method, headers: {"Content-Type": "application/json"}, body: body ? JSON.stringify(body) : undefined});
 }
 
+async function load() {
+  try {
+    S = await (await fetch("api/state")).json();
+    render();
+    if (openId !== null) refreshSheet();
+  } catch (e) { $("lastscan").textContent = "keine Verbindung"; }
+}
+
+/* ---------- Geräte ---------- */
 function render() {
   if (!S) return;
   const all = S.devices, on = all.filter(d => d.online).length;
-  document.getElementById("meta").textContent =
-    `${on} / ${all.length} online · letzter Scan ${fmt(S.last_scan)} (${S.duration}s) · Intervall ${S.interval}s · Modus ${S.mode}${S.unifi ? " + UniFi" : ""}`;
-  const errs = (S.last_error ? `<div class="err">OPNsense-Fehler: ${esc(S.last_error)}</div>` : "")
-    + (S.unifi_error ? `<div class="err">UniFi-Fehler: ${esc(S.unifi_error)}</div>` : "")
-    + (S.tg_error ? `<div class="err">Telegram-Fehler: ${esc(S.tg_error)}</div>` : "")
-    + (!S.telegram ? `<div class="warn">Telegram ist nicht konfiguriert – TELEGRAM_BOT_TOKEN und TELEGRAM_CHAT_ID in der .env setzen.</div>` : "")
-    + (S.telegram && !S.notify_new ? `<div class="warn">Meldungen für neue Geräte sind aus (NOTIFY_NEW_DEVICES=false).</div>` : "");
-  document.getElementById("error").innerHTML = errs;
-  document.getElementById("error2").innerHTML = errs;
-  const sel = document.getElementById("evlan");
-  if (sel.options.length <= 1) sel.innerHTML = `<option value="">Alle VLANs</option>` + S.vlans.map(v => `<option value="${v.id}">${esc(v.label)}</option>`).join("");
+  const unnamed = all.filter(d => !d.name).length;
+  $("lastscan").textContent = "Scan " + ago(S.last_scan);
 
-  const tabs = [{id:"all", label:"Alle", online:on, total:all.length, subnet:""}, ...S.vlans];
-  if (!tabs.some(t => String(t.id) === String(cur))) cur = "all";
-  document.getElementById("tabs").innerHTML = tabs.map(t =>
-    `<div class="tab ${String(t.id)===String(cur)?"active":""}" onclick="selTab('${t.id}')">${esc(t.label)}
-       <small>${t.online}/${t.total} online${t.subnet ? " · " + t.subnet : ""}</small></div>`).join("");
+  $("alerts").innerHTML =
+      (S.last_error ? `<div class="a-err"><b>OPNsense:</b> ${esc(S.last_error)}</div>` : "")
+    + (S.unifi_error ? `<div class="a-err"><b>UniFi:</b> ${esc(S.unifi_error)}</div>` : "")
+    + (S.tg_error ? `<div class="a-err"><b>Telegram:</b> ${esc(S.tg_error)}</div>` : "")
+    + (!S.telegram ? `<div class="a-warn">Telegram ist nicht konfiguriert (TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID).</div>` : "");
 
-  const q = document.getElementById("q").value.trim().toLowerCase();
-  const onlyOff = document.getElementById("onlyOff").checked;
-  const onlyUnnamed = document.getElementById("onlyUnnamed").checked;
-  let list = all.filter(d => cur === "all" || String(d.vlan) === String(cur));
-  if (q) list = list.filter(d => [d.name,d.unifi_name,d.ip,d.mac,d.vendor,d.hostname,d.conn].join(" ").toLowerCase().includes(q));
-  if (onlyOff) list = list.filter(d => !d.online);
-  if (onlyUnnamed) list = list.filter(d => !d.name);
+  $("stats").innerHTML = `
+    <div class="stat on"><b>${on}</b><span>online</span></div>
+    <div class="stat off"><b>${all.length - on}</b><span>offline</span></div>
+    <div class="stat"><b>${all.length}</b><span>Geräte</span></div>
+    <div class="stat"><b>${unnamed}</b><span>unbenannt</span></div>`;
 
-  document.getElementById("rows").innerHTML = list.length ? list.map(d => `
-    <tr>
-      <td><span class="dot ${d.online?"on":""}" title="${d.online?"online":"offline"}"></span></td>
-      <td><input class="name" value="${esc(d.name)}" placeholder="${esc((S.unifi_names && d.unifi_name) || d.hostname || "Name vergeben …")}"
-           onfocus="editing=true" onblur="saveName(${d.id}, this)" onkeydown="if(event.key==='Enter')this.blur()"></td>
-      <td class="mono">${esc(d.ip)}${cur==="all" && d.vlan ? ` <span class="mute">· ${d.vlan}</span>` : ""}</td>
-      <td class="mono mute hide-m">${esc(d.mac)}</td>
-      <td class="hide-m mute">${esc(d.hostname)}${d.unifi_name && d.unifi_name!==d.hostname ? `<br><small>UniFi: ${esc(d.unifi_name)}</small>` : ""}</td>
-      <td class="hide-m mute">${esc(d.vendor)}</td>
-      <td class="hide-m mute">${esc(d.conn)}</td>
-      <td class="mute" title="${d.last_seen ? new Date(d.last_seen*1000).toLocaleString("de-DE") : ""}">${d.online ? "jetzt" : fmt(d.last_seen)}</td>
-      <td><label class="switch"><input type="checkbox" ${d.watch?"checked":""} onchange="setWatch(${d.id}, this.checked)"><span></span></label></td>
-      <td><button class="del" title="Gerät entfernen" onclick="delDev(${d.id})">✕</button></td>
-    </tr>`).join("") : `<tr><td colspan="10" class="mute" style="text-align:center;padding:24px">Keine Geräte</td></tr>`;
+  const chips = [{id:"all", label:"Alle", online:on, total:all.length}, ...S.vlans];
+  if (!chips.some(c => String(c.id) === String(curVlan))) curVlan = "all";
+  $("vlans").innerHTML = chips.map(c => `
+    <button class="vchip ${String(c.id) === String(curVlan) ? "active" : ""}" onclick="selVlan('${c.id}')">
+      <div class="t">${esc(c.label)}</div>
+      <div class="s">${c.online}/${c.total} online</div>
+      <div class="bar"><i style="width:${c.total ? Math.round(c.online / c.total * 100) : 0}%"></i></div>
+    </button>`).join("");
 
+  const evSel = $("evlan");
+  if (evSel.options.length <= 1) evSel.innerHTML = `<option value="">Alle VLANs</option>` + S.vlans.map(v => `<option value="${v.id}">${esc(v.label)}</option>`).join("");
+
+  const q = $("q").value.trim().toLowerCase();
+  let list = all.filter(d => curVlan === "all" || String(d.vlan) === String(curVlan));
+  if (filter === "on") list = list.filter(d => d.online);
+  if (filter === "off") list = list.filter(d => !d.online);
+  if (filter === "unnamed") list = list.filter(d => !d.name);
+  if (filter === "watch") list = list.filter(d => d.watch);
+  if (q) list = list.filter(d => [d.name, d.unifi_name, d.hostname, d.ip, d.mac, d.vendor, d.conn].join(" ").toLowerCase().includes(q));
+
+  const sort = $("sort").value;
+  const cmp = {
+    ip: (a, b) => ipNum(a.ip) - ipNum(b.ip),
+    name: (a, b) => (dname(a) || "~").localeCompare(dname(b) || "~", "de"),
+    status: (a, b) => b.online - a.online || ipNum(a.ip) - ipNum(b.ip),
+    seen: (a, b) => (b.last_seen || 0) - (a.last_seen || 0),
+    first: (a, b) => (b.first_seen || 0) - (a.first_seen || 0),
+  }[sort];
+  list.sort(cmp);
+
+  let groups;
+  if (curVlan === "all" && ["ip", "name", "status"].includes(sort)) {
+    groups = S.vlans.map(v => ({v, items: list.filter(d => d.vlan === v.id)})).filter(g => g.items.length);
+  } else {
+    groups = [{v: null, items: list}];
+  }
+
+  $("groups").innerHTML = list.length ? groups.map(g => `
+    <div class="group">
+      ${g.v ? `<div class="ghead"><h3>${esc(g.v.label)}</h3><span>${g.v.subnet || ""}${g.v.subnet ? " · " : ""}${g.items.filter(d => d.online).length}/${g.items.length} online</span></div>` : ""}
+      <div class="list">${g.items.map(rowHtml).join("")}</div>
+    </div>`).join("")
+    : `<div class="list"><div class="empty">Keine Geräte gefunden</div></div>`;
 }
 
-/* ---------- Ereignisse ---------- */
-let E = [];
-const KIND = {new:"Neu", online:"Online", offline:"Offline", ipchange:"IP geändert", info:"Info"};
-async function loadEvents() {
-  const k = document.getElementById("ekind").value, l = document.getElementById("elimit").value;
+function rowHtml(d) {
+  const n = dname(d);
+  const sub = [d.name && d.hostname && d.hostname !== d.name ? d.hostname : "", d.vendor].filter(Boolean).join(" · ");
+  return `
+    <div class="row" onclick="openSheet(${d.id})">
+      <span class="dot ${d.online ? "on" : ""}"></span>
+      <div class="nm">
+        <b class="${n ? "" : "unnamed"}">${esc(n || "Unbekanntes Gerät")}</b>
+        <small class="m"><span class="mono">${esc(d.ip)}</span>${d.vendor ? " · " + esc(d.vendor) : ""}</small>
+        <small class="d">${esc(sub || d.mac)}</small>
+      </div>
+      <span class="ipc mono">${esc(d.ip)}</span>
+      <span class="conn">${esc(d.conn || d.interface || "")}</span>
+      <span class="seen">${d.online ? `<span style="color:var(--on)">online</span>` : ago(d.last_seen)}</span>
+      <button class="bell ${d.watch ? "on" : ""}" title="Online/Offline per Telegram melden" onclick="event.stopPropagation();toggleWatch(${d.id})">🔔</button>
+    </div>`;
+}
+
+function selVlan(id) { curVlan = id; localStorage.setItem("nw_vlan", id); render(); }
+$("filters").addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  filter = b.dataset.f;
+  [...$("filters").children].forEach(x => x.classList.toggle("active", x === b));
+  render();
+});
+
+async function toggleWatch(id) {
+  const d = S.devices.find(x => x.id === id); if (!d) return;
+  d.watch = d.watch ? 0 : 1; render();
+  await api("api/devices/" + id, {watch: !!d.watch});
+  toast(d.watch ? "🔔 Statuswechsel werden gemeldet" : "Meldungen ausgeschaltet");
+}
+
+/* ---------- Detailansicht ---------- */
+function openSheet(id) {
+  openId = id; refreshSheet(true);
+  $("backdrop").classList.add("open"); $("sheet").classList.add("open");
+}
+function closeSheet() {
+  openId = null; $("backdrop").classList.remove("open"); $("sheet").classList.remove("open");
+}
+function refreshSheet(force) {
+  const d = S.devices.find(x => x.id === openId);
+  if (!d) return closeSheet();
+  if (!force) return; // während offen nicht neu aufbauen (Eingabe nicht stören)
+  const v = S.vlans.find(x => x.id === d.vlan);
+  $("sheet").innerHTML = `
+    <h2><span class="dot ${d.online ? "on" : ""}"></span>${esc(dname(d) || "Unbekanntes Gerät")}</h2>
+    <div class="sub">${d.online ? "online" : "offline · zuletzt " + ago(d.last_seen)} · ${esc(v ? v.label : "Andere")}</div>
+    <div class="field">
+      <label for="nameInput">Name</label>
+      <input id="nameInput" value="${esc(d.name)}" placeholder="${esc(d.unifi_name || d.hostname || "z. B. Wohnzimmer TV")}" enterkeyhint="done" autocomplete="off"
+             onkeydown="if(event.key==='Enter'){saveName()}">
+    </div>
+    <dl class="kv">
+      <dt>IP</dt><dd class="mono">${esc(d.ip)}</dd>
+      <dt>MAC</dt><dd class="mono">${esc(d.mac)}</dd>
+      ${d.hostname ? `<dt>Hostname</dt><dd>${esc(d.hostname)}</dd>` : ""}
+      ${d.unifi_name ? `<dt>UniFi-Name</dt><dd>${esc(d.unifi_name)}</dd>` : ""}
+      ${d.vendor ? `<dt>Hersteller</dt><dd>${esc(d.vendor)}</dd>` : ""}
+      ${d.conn ? `<dt>Verbindung</dt><dd>${esc(d.conn)}</dd>` : ""}
+      ${d.interface ? `<dt>Interface</dt><dd>${esc(d.interface)}</dd>` : ""}
+      <dt>Zuerst gesehen</dt><dd>${dt(d.first_seen)}</dd>
+      <dt>Zuletzt gesehen</dt><dd>${dt(d.last_seen)}</dd>
+    </dl>
+    <div class="toggle">
+      <div><b>Online/Offline melden</b><small>Telegram-Nachricht bei Statuswechsel</small></div>
+      <label class="sw"><input type="checkbox" ${d.watch ? "checked" : ""} onchange="toggleWatch(${d.id})"><span></span></label>
+    </div>
+    <div class="checkres" id="checkres"></div>
+    <div class="actions">
+      <button class="btn" onclick="checkNow(${d.id})">Live prüfen</button>
+      <button class="btn primary" onclick="saveName()">Speichern</button>
+    </div>
+    <div class="actions">
+      <button class="btn danger" onclick="delDev(${d.id})">Entfernen</button>
+      <button class="btn" onclick="closeSheet()">Schließen</button>
+    </div>`;
+}
+async function saveName() {
+  const d = S.devices.find(x => x.id === openId); if (!d) return;
+  const v = $("nameInput").value.trim();
+  if (v !== d.name) { d.name = v; await api("api/devices/" + d.id, {name: v}); toast("Gespeichert"); }
+  closeSheet(); load();
+}
+async function checkNow(id) {
+  $("checkres").innerHTML = `<span class="mute">Prüfe …</span>`;
   try {
-    const r = await (await fetch(`api/events?limit=${l}&kind=${encodeURIComponent(k)}`)).json();
-    E = r.events; document.getElementById("ecount").textContent = `${r.total} gespeichert`;
+    const r = await (await api(`api/devices/${id}/check`)).json();
+    $("checkres").innerHTML = r.alive
+      ? `<span style="color:var(--on)">● antwortet auf Ping (${esc(r.ip)})</span>`
+      : `<span style="color:var(--off)">● keine Antwort auf Ping (${esc(r.ip)})</span><br><span class="mute">Manche Geräte (z. B. Handys) blockieren Ping.</span>`;
+  } catch (e) { $("checkres").textContent = "Prüfung fehlgeschlagen"; }
+}
+async function delDev(id) {
+  if (!confirm("Gerät entfernen? Ist es weiter im Netz, taucht es beim nächsten Scan als neu auf.")) return;
+  await api("api/devices/" + id, null, "DELETE"); closeSheet(); load();
+}
+document.addEventListener("keydown", e => { if (e.key === "Escape") closeSheet(); });
+
+/* ---------- Ereignisse ---------- */
+const KIND = {new:"Neu", online:"Online", offline:"Offline", ipchange:"IP neu", info:"Info"};
+async function loadEvents() {
+  try {
+    const r = await (await fetch(`api/events?limit=${$("elimit").value}&kind=${encodeURIComponent(ekind)}`)).json();
+    E = r.events; $("ecount").textContent = `${r.total} Ereignisse gespeichert`;
     renderEvents();
   } catch (e) {}
 }
+$("ekinds").addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  ekind = b.dataset.k;
+  [...$("ekinds").children].forEach(x => x.classList.toggle("active", x === b));
+  loadEvents();
+});
+function dayLabel(ts) {
+  const d = new Date(ts * 1000), t = new Date(); t.setHours(0, 0, 0, 0);
+  const diff = Math.round((t - new Date(d.getFullYear(), d.getMonth(), d.getDate())) / 86400000);
+  if (diff === 0) return "Heute";
+  if (diff === 1) return "Gestern";
+  return d.toLocaleDateString("de-DE", {weekday:"long", day:"2-digit", month:"2-digit", year:"numeric"});
+}
 function renderEvents() {
-  const q = document.getElementById("eq").value.trim().toLowerCase();
-  const v = document.getElementById("evlan").value;
+  const q = $("eq").value.trim().toLowerCase(), v = $("evlan").value;
   let list = E;
   if (v !== "") list = list.filter(e => String(e.vlan) === v);
-  if (q) list = list.filter(e => [e.text,e.name,e.unifi_name,e.hostname,e.ip,e.mac].join(" ").toLowerCase().includes(q));
-  const tg = t => !t ? `<span class="mute">–</span>`
-    : t === "sent" ? `<span class="tg-ok" title="gesendet">✓</span>`
+  if (q) list = list.filter(e => [e.text, e.name, e.unifi_name, e.hostname, e.ip, e.mac].join(" ").toLowerCase().includes(q));
+  const tg = t => !t ? `<span class="tg-none" title="keine Nachricht">·</span>`
+    : t === "sent" ? `<span class="tg-ok" title="Telegram gesendet">✓</span>`
     : t === "queued" ? `<span class="tg-wait" title="wird gesendet">…</span>`
     : `<span class="tg-err" title="${esc(t)}">✕</span>`;
-  document.getElementById("erows").innerHTML = list.length ? list.map(e => `
-    <tr>
-      <td class="mute" style="white-space:nowrap">${new Date(e.ts*1000).toLocaleString("de-DE")}</td>
-      <td><span class="badge b-${e.kind}">${KIND[e.kind] || esc(e.kind)}</span></td>
-      <td>${esc(e.name || e.unifi_name || e.hostname || "")}</td>
-      <td class="mono">${esc(e.ip || "")}</td>
-      <td class="hide-m mute">${e.vlan ? e.vlan : (e.vlan === 0 ? "andere" : "")}</td>
-      <td>${esc(e.text)}${e.tg && e.tg.startsWith("error") ? `<br><small class="tg-err">${esc(e.tg)}</small>` : ""}</td>
-      <td>${tg(e.tg)}</td>
-    </tr>`).join("") : `<tr><td colspan="7" class="mute" style="text-align:center;padding:24px">Keine Ereignisse</td></tr>`;
+  const days = [];
+  for (const e of list) {
+    const l = dayLabel(e.ts);
+    if (!days.length || days[days.length - 1].l !== l) days.push({l, items: []});
+    days[days.length - 1].items.push(e);
+  }
+  $("egroups").innerHTML = list.length ? days.map(g => `
+    <div class="day">${g.l}</div>
+    <div class="list">${g.items.map(e => {
+      const who = e.name || (S && S.unifi_names && e.unifi_name) || e.hostname || (e.device ? "Unbekanntes Gerät" : "");
+      const what = e.kind === "new" ? (e.text.startsWith("Erfasst") ? "beim ersten Scan erfasst" : "neu im Netz")
+        : e.kind === "online" ? "ist online" : e.kind === "offline" ? "ist offline"
+        : e.kind === "ipchange" ? (e.text.split(": ").slice(1).join(": ") || e.text) : e.text;
+      const b = `<span class="badge b-${e.kind}">${KIND[e.kind] || esc(e.kind)}</span>`;
+      return `
+      <div class="ev" ${e.device ? `onclick="go(${e.device})" style="cursor:pointer"` : ""}>
+        <time>${new Date(e.ts * 1000).toLocaleTimeString("de-DE", {hour:"2-digit", minute:"2-digit"})}</time>
+        <span class="bdg">${b}</span>
+        <div class="txt">
+          <span class="bm">${b}</span><b>${esc(who || e.text)}</b>
+          ${who ? `<small>${esc(what)}${e.ip && e.kind !== "ipchange" ? ` · <span class="mono">${esc(e.ip)}</span>` : ""}</small>` : ""}
+          ${e.tg && e.tg.startsWith("error") ? `<small class="tg-err">${esc(e.tg)}</small>` : ""}
+        </div>
+        <span class="tg">${tg(e.tg)}</span>
+      </div>`; }).join("")}</div>`).join("")
+    : `<div class="list"><div class="empty">Keine Ereignisse</div></div>`;
+}
+function go(id) {
+  location.hash = "#/";
+  setTimeout(() => { if (S && S.devices.some(d => d.id === id)) openSheet(id); }, 60);
 }
 async function clearEvents() {
   if (!confirm("Alle Ereignisse löschen?")) return;
-  await post("api/events", null, "DELETE"); loadEvents();
+  await api("api/events", null, "DELETE"); loadEvents();
+}
+
+/* ---------- Aktionen ---------- */
+async function scanNow() {
+  $("scanbtn").classList.add("spin");
+  await api("api/scan");
+  setTimeout(async () => {
+    await load(); if (location.hash === "#/events") loadEvents();
+    $("scanbtn").classList.remove("spin"); toast("Scan abgeschlossen");
+  }, 3500);
+}
+async function tgTest() {
+  const r = await api("api/telegram/test");
+  const j = await r.json().catch(() => ({}));
+  toast(r.ok ? "✓ Telegram-Testnachricht gesendet" : "✕ Telegram: " + (j.error || "Fehler"));
+  load();
 }
 
 /* ---------- Navigation ---------- */
 function route() {
   const ev = location.hash === "#/events";
-  document.getElementById("page-dev").classList.toggle("hidden", ev);
-  document.getElementById("page-ev").classList.toggle("hidden", !ev);
-  document.getElementById("nav-dev").classList.toggle("active", !ev);
-  document.getElementById("nav-ev").classList.toggle("active", ev);
+  $("page-dev").classList.toggle("hidden", ev);
+  $("page-ev").classList.toggle("hidden", !ev);
+  document.querySelectorAll("[data-nav]").forEach(a => a.classList.toggle("active", (a.dataset.nav === "ev") === ev));
   if (ev) loadEvents();
+  window.scrollTo(0, 0);
 }
 window.addEventListener("hashchange", route);
 
-function selTab(id) { cur = id; localStorage.setItem("nw_tab", id); render(); }
-
-async function post(url, body, method="POST") {
-  return fetch(url, {method, headers:{"Content-Type":"application/json"}, body: body ? JSON.stringify(body) : undefined});
-}
-async function saveName(id, el) {
-  editing = false;
-  const d = S.devices.find(x => x.id === id);
-  if (d && d.name !== el.value.trim()) { d.name = el.value.trim(); await post("api/devices/" + id, {name: d.name}); }
-  load();
-}
-async function setWatch(id, v) { await post("api/devices/" + id, {watch: v}); load(); }
-async function delDev(id) {
-  if (!confirm("Gerät aus der Liste entfernen? (Taucht beim nächsten Scan wieder als neu auf, falls aktiv)")) return;
-  await post("api/devices/" + id, null, "DELETE"); load();
-}
-async function scanNow() { await post("api/scan"); setTimeout(load, 3000); }
-async function tgTest() {
-  const r = await post("api/telegram/test");
-  const j = await r.json().catch(() => ({}));
-  alert(r.ok ? "Testnachricht gesendet." : "Senden fehlgeschlagen:\n" + (j.error || "Token / Chat-ID prüfen"));
-  load();
-}
-
 route();
 load();
-setInterval(() => { load(); if (location.hash === "#/events") loadEvents(); }, 10000);
+setInterval(() => { if (document.hidden) return; load(); if (location.hash === "#/events") loadEvents(); }, 10000);
 </script>
 </body>
 </html>
